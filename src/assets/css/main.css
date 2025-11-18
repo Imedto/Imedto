@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  @apply font-nunito bg-[#FBFBFF];
+}
+
+section {
+  @apply min-h-screen px-20 py-16;
+}
+
+@layer base {
+  h4 {
+    @apply text-primary-dark text-3xl font-bold;
+  }
+}
+
+@layer components {
+  /* BUTTONS */
+  .btn-primary {
+    @apply py-4 px-8 w-full bg-primary text-white text-lg font-semibold rounded hover:bg-[#4B2CB0] active:bg-[#3A2287] transition;
+  }
+  .btn-google {
+    @apply flex items-center justify-center gap-2 py-4 w-full border border-primary text-primary text-lg font-semibold rounded mb-6 hover:bg-primary-light active:border-primary-dark transition;
+  }
+
+  /* FORMS */
+  .form-input {
+    @apply w-full py-3 px-6 rounded-lg text-sm border border-primary-light hover:border-primary-medium outline-primary transition;
+  }
+}
