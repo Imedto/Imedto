@@ -2,11 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useAgendamentoStore } from '@/stores/agendamento'
 import { useUserContextStore } from '@/stores/userContext'
+import { usePacientesStore } from '@/stores/pacientes'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
+import CompletarCadastroPaciente from '../components/CompletarCadastroPaciente.vue'
 
 const agendamentoStore = useAgendamentoStore()
 const userContext = useUserContextStore()
+const pacientesStore = usePacientesStore()
 const router = useRouter()
 
 const loading = ref(false)
@@ -30,8 +33,7 @@ const formData = ref({
 
 // Busca de paciente
 const buscaPaciente = ref('')
-const mostrarNovoPaciente = ref(false)
-const novoPacienteNome = ref('')
+const mostrarModalCadastroPaciente = ref(false)
 
 onMounted(async () => {
   await carregarDados()
@@ -74,79 +76,31 @@ async function carregarDados() {
 
 async function buscarPacientes(termo?: string) {
   try {
-    let query = supabase
-      .from('pacientes')
-      .select(
-        `
-        *,
-        paciente_estabelecimento!inner (
-          estabelecimento_id
-        )
-      `,
-      )
-      .eq(
-        'paciente_estabelecimento.estabelecimento_id',
-        userContext.estabelecimentoAtual,
-      )
-      .order('nome_completo')
-      .limit(20)
-
-    if (termo) {
-      query = query.ilike('nome_completo', `%${termo}%`)
-    }
-
-    const { data } = await query
-
-    if (data) {
-      pacientes.value = data
-    }
+    const resultados = await pacientesStore.buscarPacientes(termo || '', 20)
+    pacientes.value = resultados
   } catch (error) {
     console.error('Erro ao buscar pacientes:', error)
   }
 }
 
-async function criarPacienteRapido() {
-  try {
-    if (!novoPacienteNome.value.trim()) return
+function abrirCadastroPaciente() {
+  mostrarModalCadastroPaciente.value = true
+}
 
-    loading.value = true
-
-    // Criar paciente
-    const { data: novoPaciente, error: errorPaciente } = await supabase
-      .from('pacientes')
-      .insert({
-        nome_completo: novoPacienteNome.value.trim(),
-      })
-      .select()
-      .single()
-
-    if (errorPaciente) throw errorPaciente
-
-    // Vincular ao estabelecimento
-    const { error: errorVinculo } = await supabase
-      .from('paciente_estabelecimento')
-      .insert({
-        paciente_id: novoPaciente.id,
-        estabelecimento_id: userContext.estabelecimentoAtual,
-      })
-
-    if (errorVinculo) throw errorVinculo
-
-    // Selecionar o novo paciente
-    formData.value.paciente_id = novoPaciente.id
-    mostrarNovoPaciente.value = false
-    novoPacienteNome.value = ''
-
-    // Recarregar lista de pacientes
-    await buscarPacientes()
-
-    successMessage.value = 'Paciente criado com sucesso!'
-  } catch (error: any) {
-    console.error('Erro ao criar paciente:', error)
-    errorMessage.value = error.message || 'Erro ao criar paciente'
-  } finally {
-    loading.value = false
-  }
+async function handlePacienteCadastrado(pacienteId: string) {
+  // Selecionar o paciente recém-cadastrado
+  formData.value.paciente_id = pacienteId
+  
+  // Recarregar lista de pacientes
+  await buscarPacientes()
+  
+  // Fechar modal
+  mostrarModalCadastroPaciente.value = false
+  
+  successMessage.value = 'Paciente cadastrado com sucesso!'
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 3000)
 }
 
 async function salvar() {
@@ -239,11 +193,11 @@ async function salvar() {
             Paciente
           </label>
 
-          <div v-if="!mostrarNovoPaciente">
+          <div class="space-y-3">
+            <!-- Select de Paciente -->
             <select
               v-model="formData.paciente_id"
-              class="form-input mb-2"
-              @change="(e) => e.target.value === 'novo' && (mostrarNovoPaciente = true)"
+              class="form-input"
             >
               <option :value="null">Agendamento sem paciente</option>
               <option
@@ -252,52 +206,30 @@ async function salvar() {
                 :value="paciente.id"
               >
                 {{ paciente.nome_completo }}
+                <span v-if="paciente.cpf"> - CPF: {{ paciente.cpf }}</span>
               </option>
-              <option value="novo">+ Cadastrar novo paciente</option>
             </select>
 
+            <!-- Busca e Novo Paciente -->
             <div class="flex gap-2">
               <input
                 v-model="buscaPaciente"
                 type="text"
-                placeholder="Buscar paciente..."
-                class="form-input"
+                placeholder="Buscar por nome, CPF ou telefone..."
+                class="form-input flex-1"
                 @input="buscarPacientes(buscaPaciente)"
               />
-            </div>
-          </div>
-
-          <!-- Cadastro Rápido de Paciente -->
-          <div v-else class="border border-primary-light rounded-lg p-4">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-semibold text-gray-800">Cadastro Rápido</h3>
               <button
                 type="button"
-                class="text-sm text-gray-600 hover:text-gray-800"
-                @click="mostrarNovoPaciente = false"
+                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition whitespace-nowrap"
+                @click="abrirCadastroPaciente"
               >
-                ✕ Cancelar
+                + Novo Paciente
               </button>
             </div>
 
-            <div class="flex gap-2">
-              <input
-                v-model="novoPacienteNome"
-                type="text"
-                placeholder="Nome completo do paciente"
-                class="form-input flex-1"
-              />
-              <button
-                type="button"
-                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
-                @click="criarPacienteRapido"
-                :disabled="loading"
-              >
-                Criar
-              </button>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">
-              Você poderá completar o cadastro depois
+            <p class="text-xs text-gray-500">
+              Se o paciente não estiver na lista, clique em "Novo Paciente" para cadastrar
             </p>
           </div>
         </div>
@@ -408,5 +340,12 @@ async function salvar() {
         </div>
       </form>
     </div>
+
+    <!-- Modal de Cadastro de Paciente -->
+    <CompletarCadastroPaciente
+      :mostrar="mostrarModalCadastroPaciente"
+      @fechar="mostrarModalCadastroPaciente = false"
+      @concluido="handlePacienteCadastrado"
+    />
   </section>
 </template>

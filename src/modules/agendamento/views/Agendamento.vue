@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAgendamentoStore } from '@/stores/agendamento'
 import { useUserContextStore } from '@/stores/userContext'
 import { useRouter } from 'vue-router'
@@ -10,18 +10,6 @@ const router = useRouter()
 
 const visualizacao = ref<'lista' | 'calendario'>('lista')
 const dataSelecionada = ref(new Date())
-
-// Computeds
-const mesAtual = computed(() => {
-  return dataSelecionada.value.toLocaleDateString('pt-BR', {
-    month: 'long',
-    year: 'numeric',
-  })
-})
-
-const hoje = computed(() => {
-  return new Date().toISOString().split('T')[0]
-})
 
 onMounted(async () => {
   // Carregar agendamentos do mês atual
@@ -61,10 +49,6 @@ function getStatusLabel(status: string) {
     faltou: 'Faltou',
   }
   return labels[status] || status
-}
-
-function formatarData(data: string) {
-  return new Date(data).toLocaleDateString('pt-BR')
 }
 
 function formatarHora(data: string) {
